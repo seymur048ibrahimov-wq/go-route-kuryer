@@ -46,25 +46,55 @@ window.showSystemNotif = async function(title, body, tag){
    Köhnə kod Leaflet üslubunda yazıldığı üçün eyni adlı funksiyalar (L.map, L.marker, L.Routing...) burada
    Google Maps üzərində yenidən qurulub — beləliklə sifariş/izləmə məntiqinə toxunulmayıb. */
 (function(){
+  /* 3D rejimi: vektor xəritə (əyilmə/tilt + 3D binalar). MAP_ID üçün Google Cloud-da öz Map ID-nizi yaradıb yazın;
+     'DEMO_MAP_ID' yalnız sınaq üçündür. USE3D=false olsa, əvvəlki 2D (stilli) xəritə işləyir. */
+  var USE3D = true, MAP_ID = 'DEMO_MAP_ID', TILT = 55;
   var GMAPS_KEY = 'AIzaSyAQcVU7_ac2e73cMF__xd_t40Xu2kJchF4';
   var ready = false, queue = [];
   function whenReady(fn){ if (ready) fn(); else queue.push(fn); }
   window.__gmWhenReady = whenReady;
 
+  /* youtaxi xəritəsinin "Bakı gecəsi" / gündüz üslubu */
   var DARK = [
-    {elementType:'geometry',stylers:[{color:'#1d2330'}]},
-    {elementType:'labels.text.fill',stylers:[{color:'#c9b98a'}]},
-    {elementType:'labels.text.stroke',stylers:[{color:'#11151d'}]},
-    {featureType:'poi',elementType:'labels.icon',stylers:[{visibility:'off'}]},
-    {featureType:'poi.park',elementType:'geometry',stylers:[{color:'#1f3a2c'}]},
-    {featureType:'road',elementType:'geometry',stylers:[{color:'#2f3848'}]},
-    {featureType:'road',elementType:'geometry.stroke',stylers:[{color:'#212a37'}]},
-    {featureType:'road.highway',elementType:'geometry',stylers:[{color:'#6b5a2a'}]},
-    {featureType:'road.highway',elementType:'geometry.stroke',stylers:[{color:'#3d3418'}]},
-    {featureType:'transit',elementType:'geometry',stylers:[{color:'#2a3140'}]},
-    {featureType:'water',elementType:'geometry',stylers:[{color:'#0b1f33'}]},
-    {featureType:'water',elementType:'labels.text.fill',stylers:[{color:'#4e6d8c'}]}
-  ];
+  { elementType: "geometry", stylers: [{ color: "#10272a" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#a3c4c0" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#0b1d1f" }, { weight: 3 }] },
+  { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+  { featureType: "administrative", elementType: "geometry.stroke", stylers: [{ color: "#2c5458" }] },
+  { featureType: "administrative.land_parcel", stylers: [{ visibility: "off" }] },
+  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#d6f2ec" }] },
+  { featureType: "administrative.neighborhood", elementType: "labels.text.fill", stylers: [{ color: "#7fa9a4" }] },
+  { featureType: "landscape.man_made", elementType: "geometry", stylers: [{ color: "#132f33" }] },
+  { featureType: "landscape.natural", elementType: "geometry", stylers: [{ color: "#0f2a27" }] },
+  { featureType: "poi", elementType: "geometry", stylers: [{ color: "#143236" }] },
+  { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#11463a" }] },
+  { featureType: "road", elementType: "geometry.fill", stylers: [{ color: "#2a4c52" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#0d2124" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#b4d3cf" }] },
+  { featureType: "road.local", elementType: "geometry.fill", stylers: [{ color: "#22403f" }] },
+  { featureType: "road.arterial", elementType: "geometry.fill", stylers: [{ color: "#33616a" }] },
+  { featureType: "road.highway", elementType: "geometry.fill", stylers: [{ color: "#1d7f7c" }] },
+  { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#0b3c3f" }] },
+  { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#e3fff8" }] },
+  { featureType: "transit.line", elementType: "geometry", stylers: [{ color: "#3a2a44" }] },
+  { featureType: "transit.station", stylers: [{ visibility: "off" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#0a4a6b" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#6cc3e6" }] }
+];
+  var DAY = [
+  { elementType: "geometry", stylers: [{ color: "#f3f1ea" }] },
+  { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#5b6b68" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#f7f5ef" }] },
+  { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#cfe9dc" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#bfe6dc" }] },
+  { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#7cc9b6" }] },
+  { featureType: "transit", stylers: [{ visibility: "off" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#a9d8ea" }] }
+];
 
   function toLL(a, b){
     if (Array.isArray(a)) return { lat: +a[0], lng: +a[1] };
@@ -139,17 +169,43 @@ window.showSystemNotif = async function(title, body, tag){
     this._el = typeof id === 'string' ? document.getElementById(id) : id;
     this._center = { lat: 40.4093, lng: 49.8671 }; this._zoom = 13;
     this._type = 'roadmap'; this._dark = true;
-    this._g = null; this._q = []; this._layers = new Set();
+    this._g = null; this._q = []; this._layers = new Set(); this._routes = [];
+    this._tilt = TILT; this._heading = 0; this._builtDark = null;
     var self = this;
     whenReady(function(){
-      self._g = new google.maps.Map(self._el, {
-        center: self._center, zoom: self._zoom, mapTypeId: self._type,
-        styles: (self._dark && self._type === 'roadmap') ? DARK : null,
-        disableDefaultUI: true, gestureHandling: 'greedy', clickableIcons: false, backgroundColor: '#0d0d0d'
-      });
+      self._build();
       var q = self._q; self._q = []; q.forEach(function(f){ try { f(self._g); } catch(e){ console.error(e); } });
     });
   }
+  GMap.prototype._build = function(){
+    var self = this, dark = self._dark;
+    var o = { center: self._center, zoom: self._zoom, mapTypeId: self._type,
+      disableDefaultUI: true, gestureHandling: 'greedy', clickableIcons: false, backgroundColor: dark ? '#10272a' : '#f3f1ea' };
+    if (USE3D && MAP_ID) {
+      o.mapId = MAP_ID; o.renderingType = 'VECTOR'; o.tilt = self._tilt; o.heading = self._heading;
+      try { o.colorScheme = dark ? google.maps.ColorScheme.DARK : google.maps.ColorScheme.LIGHT; } catch(e){}
+    } else {
+      o.styles = self._type === 'roadmap' ? (dark ? DARK : DAY) : null;
+    }
+    self._builtDark = dark;
+    self._g = new google.maps.Map(self._el, o);
+  };
+  /* Tema dəyişəndə (gecə/gündüz) vektor xəritə yenidən qurulur — markerlər və marşrut yenidən bağlanır */
+  GMap.prototype._rebuild = function(){
+    var self = this, old = self._g;
+    if (old) {
+      try { var c = old.getCenter(); self._center = { lat: c.lat(), lng: c.lng() }; self._zoom = old.getZoom();
+            if (old.getTilt) self._tilt = old.getTilt() || self._tilt; if (old.getHeading) self._heading = old.getHeading() || 0; } catch(e){}
+    }
+    self._el.innerHTML = '';
+    self._build();
+    Array.from(self._layers).forEach(function(l){
+      if (l._isGroup) return;
+      if (l._ov) { try { l._ov.setMap(null); } catch(e){} } l._ov = null; l._iw = null;
+      l._attach(self);
+    });
+    self._routes.forEach(function(r){ r._redraw(); });
+  };
   GMap.prototype._whenMap = function(fn){ if (this._g) fn(this._g); else this._q.push(fn); };
   GMap.prototype.setView = function(ll, z){
     this._center = toLL(ll); if (z != null) this._zoom = z;
@@ -161,7 +217,14 @@ window.showSystemNotif = async function(title, body, tag){
   GMap.prototype.removeLayer = function(l){ if (l && l.remove) l.remove(); return this; };
   GMap.prototype.setLook = function(type, dark){
     this._type = type; this._dark = dark;
-    this._whenMap(function(g){ g.setMapTypeId(type); g.setOptions({ styles: (dark && type === 'roadmap') ? DARK : null }); });
+    var self = this;
+    this._whenMap(function(g){
+      if (USE3D && MAP_ID) {
+        if (self._builtDark !== dark) self._rebuild(); else g.setMapTypeId(type);
+      } else {
+        g.setMapTypeId(type); g.setOptions({ styles: type === 'roadmap' ? (dark ? DARK : DAY) : null, backgroundColor: dark ? '#10272a' : '#f3f1ea' });
+      }
+    });
   };
 
   /* --- Marşrut: əvvəl Google Directions, alınmasa OSRM (xəritədə yenə Google üzərində çəkilir) --- */
@@ -207,15 +270,17 @@ window.showSystemNotif = async function(title, body, tag){
     this._o = opts || {}; this._wps = []; this._map = null; this._h = {}; this._lines = [];
     this._key = ''; this._t = 0; this._from = null; this._seq = 0;
   }
-  Routing.prototype.addTo = function(m){ this._map = m; return this; };
+  Routing.prototype.addTo = function(m){ this._map = m; if (m._routes && m._routes.indexOf(this) < 0) m._routes.push(this); return this; };
   Routing.prototype.on = function(ev, fn){ (this._h[ev] = this._h[ev] || []).push(fn); return this; };
   Routing.prototype._emit = function(ev, d){ (this._h[ev] || []).forEach(function(f){ try { f(d); } catch(e){ console.error(e); } }); };
   Routing.prototype.getWaypoints = function(){ return this._wps.map(function(p){ return { latLng: p }; }); };
-  Routing.prototype._clear = function(){ this._lines.forEach(function(l){ l.setMap(null); }); this._lines = []; };
+  Routing.prototype._clear = function(){ this._lines.forEach(function(l){ l.setMap(null); }); this._lines = [];
+    if (this._dashT) { clearInterval(this._dashT); this._dashT = null; }
+    if (this._chip) { this._chip.remove(); this._chip = null; } };
   Routing.prototype.setWaypoints = function(arr){
     arr = (arr || []).filter(Boolean).map(function(p){ return toLL(p.latLng || p); });
     this._wps = arr;
-    if (arr.length < 2) { this._seq++; this._clear(); this._key = ''; return this; }
+    if (arr.length < 2) { this._seq++; this._clear(); this._key = ''; this._last = null; return this; }
     var from = arr[0], to = arr[arr.length - 1];
     this._emit('waypointschanged', { from: from, to: to });
     var key = to.lat.toFixed(5) + ',' + to.lng.toFixed(5), now = Date.now();
@@ -227,20 +292,39 @@ window.showSystemNotif = async function(title, body, tag){
     var self = this, seq = ++this._seq;
     window.__gorouteRoute(from, to).then(function(r){
       if (seq !== self._seq || !self._map) return;
-      self._map._whenMap(function(g){
+      self._last = { r: r, from: from, to: to };
+      self._draw(r, from, to, isNew);
+      self._emit('routesfound', { routes: [{ summary: { totalDistance: r.meters, totalTime: r.seconds } }] });
+    }).catch(function(e){ console.warn('Marşrut qurulmadı:', e && e.message); if (seq === self._seq) { self._key = ''; self._t = 0; } });
+    return this;
+  };
+
+  Routing.prototype._redraw = function(){ if (this._last) this._draw(this._last.r, this._last.from, this._last.to, false); };
+  Routing.prototype._draw = function(r, from, to, isNew){
+    var self = this;
+    self._map._whenMap(function(g){
         self._clear();
         var styles = (self._o.lineOptions && self._o.lineOptions.styles) || [{ color:'#0a5fd6', weight:6, opacity:0.95 }];
         styles.forEach(function(s, i){
           self._lines.push(new google.maps.Polyline({ path: r.path, strokeColor: s.color, strokeWeight: s.weight, strokeOpacity: s.opacity, zIndex: 10 + i, clickable: false, map: g }));
         });
+        if (self._o.animated) {
+          var dash = new google.maps.Polyline({ path: r.path, strokeOpacity: 0, zIndex: 20, clickable: false, map: g,
+            icons: [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, strokeColor: '#E9FFF8', scale: 2.6 }, offset: '0', repeat: '18px' }] });
+          self._lines.push(dash);
+          var off = 0; self._dashT = setInterval(function(){ off = (off + 1) % 180; var ic = dash.get('icons'); ic[0].offset = (off / 10) + 'px'; dash.set('icons', ic); }, 50);
+        }
+        if (self._o.showChip && r.path.length) {
+          var mid = r.path[Math.floor(r.path.length / 2)];
+          var km = (distM(from, to) / 1000).toFixed(1), mn = Math.max(1, Math.round(r.seconds / 60));
+          var chip = new Marker(mid, { icon: { html: '<div class="rlbl"><b>' + km + ' km</b><span>' + mn + ' dəq</span></div>', iconSize: [0, 0], iconAnchor: [0, 0] } });
+          chip._el.style.cursor = 'default'; chip._el.style.pointerEvents = 'none'; chip.addTo(self._map); self._chip = chip;
+        }
         if (isNew && self._o.fitSelectedRoutes !== false) {
           var b = new google.maps.LatLngBounds(); r.path.forEach(function(p){ b.extend(p); });
           g.fitBounds(b, 60);
         }
       });
-      self._emit('routesfound', { routes: [{ summary: { totalDistance: r.meters, totalTime: r.seconds } }] });
-    }).catch(function(e){ console.warn('Marşrut qurulmadı:', e && e.message); if (seq === self._seq) { self._key = ''; self._t = 0; } });
-    return this;
   };
 
   window.L = {
@@ -418,7 +502,18 @@ z-index:900;
     transition: transform 0.35s linear;
     transform-origin: 50% 50%;
 }
+.rlbl{position:absolute;left:0;top:0;transform:translate(-50%,-130%);display:flex;align-items:center;gap:7px;padding:4px 9px;border-radius:10px;white-space:nowrap;background:linear-gradient(135deg,#10C98F,#12A9CC);color:#03110E;font-size:11px;font-weight:800;box-shadow:0 6px 12px -4px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.4)}
+.rlbl b{font-size:12px}.rlbl span{opacity:.75}
+.gpin{width:28px;height:28px;border-radius:50% 50% 50% 4px;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 14px -4px rgba(0,0,0,.55),inset -3px -4px 6px rgba(0,0,0,.22),inset 3px 3px 5px rgba(255,255,255,.35);border:2px solid rgba(255,255,255,.95)}
+.gpin i{transform:rotate(45deg);font-style:normal;font-size:13px}
+.gpin.r{background:linear-gradient(135deg,#10C98F,#12A9CC)}.gpin.c{background:linear-gradient(135deg,#FF5FA2,#E43F86)}
+.courier-pulse{position:absolute;inset:2px;border-radius:50%;
+    background:radial-gradient(circle,rgba(16,201,143,0.4) 0%,rgba(18,169,204,0.15) 55%,transparent 72%);
+    border:1.5px solid rgba(16,201,143,0.6);animation:courierPulse 2s ease-out infinite;}
+@keyframes courierPulse{0%{transform:scale(0.55);opacity:1;}100%{transform:scale(1.25);opacity:0;}}
+.courier-nav{position:absolute;inset:2px;width:36px;height:36px;transition:transform 0.3s ease;filter:drop-shadow(0 4px 6px rgba(0,0,0,0.55)) drop-shadow(0 0 8px rgba(255,200,60,0.6));}
 .courier-circle{
+    display:none;
     position:absolute;
     top:10px;left:10px;
     width:20px;height:20px;
@@ -429,6 +524,7 @@ z-index:900;
     animation: courierGlow 2s ease-in-out infinite;
 }
 .courier-arrow{
+    display:none;
     position:absolute;
     top:-3px;left:50%;
     width:0;height:0;
@@ -479,7 +575,7 @@ z-index:401;
 .map{
 box-shadow: inset 0 0 0 1px rgba(212,175,55,0.25);
 }
-#map{ filter: saturate(1.35) contrast(1.08) brightness(1.02); }
+#map{ filter:none; }
 .map-vignette{
     position:absolute; inset:0; pointer-events:none; z-index:402;
     background:
@@ -3001,9 +3097,9 @@ let customerMarker = null;
 
 const luxeGoldIcon = (emoji) => L.divIcon({
     className: '',
-    html: `<div style="width:34px;height:34px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#eaf6ff,#0a84ff 60%,#003a75);border:2px solid #ffffff;box-shadow:0 0 16px rgba(10,132,255,0.55),0 4px 10px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;font-size:16px;">${emoji}</div>`,
-    iconSize: [34, 34],
-    iconAnchor: [17, 17]
+    html: `<div class="gpin ${emoji === '🍽️' ? 'r' : 'c'}"><i>${emoji}</i></div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 34]
 });
 
 /* POPULYAR YERLƏR — KFC, McDonald's, Mall və Wolt tərəfdaşı populyar restoranlar.
@@ -3060,7 +3156,8 @@ function toggleHotspots(){
 
 let routingControl = L.Routing.control({
     waypoints: [],
-    lineOptions: { styles: [{ color: '#0a5fd6', weight: 6, opacity: 0.95 }, { color: '#eaf6ff', weight: 2, opacity: 0.7 }] },
+    animated: true, showChip: true,
+    lineOptions: { styles: [{ color: '#000000', weight: 9, opacity: 0.35 }, { color: '#10C98F', weight: 14, opacity: 0.2 }, { color: '#12A9CC', weight: 5, opacity: 1 }] },
     addWaypoints: false,
     draggableWaypoints: false,
     fitSelectedRoutes: true,
@@ -3071,7 +3168,7 @@ let routingControl = L.Routing.control({
 let courierMarker = L.marker([40.4093, 49.8671], {
     icon: L.divIcon({
         className: '',
-        html: '<div class="courier-wrap" id="courierWrap"><div class="courier-arrow"></div><div class="courier-circle"></div></div>',
+        html: '<div class="courier-wrap" id="courierWrap"><div class="courier-pulse"></div><svg class="courier-nav" viewBox="0 0 64 64"><defs><linearGradient id="crBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff9e0"/><stop offset="1" stop-color="#ffd978"/></linearGradient></defs><circle cx="32" cy="32" r="30" fill="url(#crBg)" stroke="#d4a017" stroke-width="3"/><ellipse cx="32" cy="50" rx="19" ry="3" fill="rgba(0,0,0,0.18)"/><rect x="7" y="22" width="17" height="15" rx="3" fill="#ff7a18" stroke="#b34700" stroke-width="1.5"/><path d="M17 25 l-3 5 h3 l-1 5 l5 -7 h-3 l1 -3z" fill="#fff"/><path d="M13 40 Q13 34 21 34 L34 34 L37 43 L15 43 Z" fill="#e53935"/><rect x="22" y="42" width="17" height="3" rx="1.5" fill="#9b1c1c"/><path d="M44 46 L40 24" stroke="#3a3a3a" stroke-width="3.2" stroke-linecap="round"/><path d="M36 23 L45 23" stroke="#222" stroke-width="3.2" stroke-linecap="round"/><path d="M27 35 L35 44" stroke="#25324a" stroke-width="4.4" stroke-linecap="round"/><path d="M26 34 Q25 22 31 17 L36 19 Q35 28 33 35 Z" fill="#1e88e5"/><path d="M33 21 L40 26" stroke="#1565c0" stroke-width="4" stroke-linecap="round"/><circle cx="32" cy="12" r="5.2" fill="#f2c9a0"/><path d="M26.4 11.5 A5.6 5.6 0 0 1 37.6 11.5 L37.6 12.5 L26.4 12.5 Z" fill="#ffb300" stroke="#b27a00" stroke-width="1"/><circle cx="17" cy="48" r="6.3" fill="#1b1b1b"/><circle cx="17" cy="48" r="2.4" fill="#ffd54f"/><circle cx="46" cy="48" r="6.3" fill="#1b1b1b"/><circle cx="46" cy="48" r="2.4" fill="#ffd54f"/></svg></div>',
         iconSize: [40, 40],
         iconAnchor: [20, 20]
     })
@@ -3122,7 +3219,8 @@ function updateCourierHeading(bearing) {
     const el = courierMarker.getElement();
     if (!el) return;
     const wrap = el.querySelector('#courierWrap') || el.querySelector('.courier-wrap');
-    if (wrap) wrap.style.transform = `rotate(${bearing}deg)`;
+    const pic = wrap && wrap.querySelector('.courier-nav');
+    if (pic) pic.style.transform = (bearing > 180 && bearing < 360) ? 'scaleX(-1)' : 'scaleX(1)';
 }
 
 function moveMarkerSmoothly(marker, newLat, newLng) {
