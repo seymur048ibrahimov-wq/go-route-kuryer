@@ -190,7 +190,9 @@ window.showSystemNotif = async function(title, body, tag){
   }
   function osrmRoute(from, to){
     var url = 'https://router.project-osrm.org/route/v1/driving/' + from.lng + ',' + from.lat + ';' + to.lng + ',' + to.lat + '?overview=full&geometries=geojson';
-    return fetch(url).then(function(r){ return r.json(); }).then(function(d){
+    var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var tm = setTimeout(function(){ if (ctrl) ctrl.abort(); }, 10000);
+    return fetch(url, ctrl ? { signal: ctrl.signal } : undefined).then(function(r){ clearTimeout(tm); return r.json(); }).then(function(d){
       if (d.code !== 'Ok' || !d.routes || !d.routes[0]) throw new Error('OSRM');
       return { meters: d.routes[0].distance, seconds: d.routes[0].duration,
                path: d.routes[0].geometry.coordinates.map(function(c){ return { lat: c[1], lng: c[0] }; }) };
@@ -215,6 +217,7 @@ window.showSystemNotif = async function(title, body, tag){
     this._wps = arr;
     if (arr.length < 2) { this._seq++; this._clear(); this._key = ''; return this; }
     var from = arr[0], to = arr[arr.length - 1];
+    this._emit('waypointschanged', { from: from, to: to });
     var key = to.lat.toFixed(5) + ',' + to.lng.toFixed(5), now = Date.now();
     var moved = this._from ? distM(this._from, from) : 1e9;
     /* Xərcə qənaət: eyni təyinat üçün marşrut yalnız 30 san. keçəndə və ya kuryer 80 m+ hərəkət edəndə yenilənir */
@@ -236,7 +239,7 @@ window.showSystemNotif = async function(title, body, tag){
         }
       });
       self._emit('routesfound', { routes: [{ summary: { totalDistance: r.meters, totalTime: r.seconds } }] });
-    }).catch(function(e){ console.warn('Marşrut qurulmadı:', e && e.message); });
+    }).catch(function(e){ console.warn('Marşrut qurulmadı:', e && e.message); if (seq === self._seq) { self._key = ''; self._t = 0; } });
     return this;
   };
 
@@ -250,8 +253,13 @@ window.showSystemNotif = async function(title, body, tag){
   };
 
   window.__gmReady = function(){
-    ready = true; defineOverlay();
-    var q = queue; queue = []; q.forEach(function(f){ try { f(); } catch(e){ console.error(e); } });
+    var libs = (google.maps && google.maps.importLibrary)
+      ? Promise.all([google.maps.importLibrary('maps'), google.maps.importLibrary('routes')]).catch(function(e){ console.warn('Google Maps kitabxanası yüklənmədi:', e && e.message); })
+      : Promise.resolve();
+    libs.then(function(){
+      ready = true; defineOverlay();
+      var q = queue; queue = []; q.forEach(function(f){ try { f(); } catch(e){ console.error(e); } });
+    });
   };
   window.gm_authFailure = function(){
     console.error('Google Maps açarı bu ünvan üçün icazəli deyil (API key / referrer məhdudiyyəti).');
@@ -1560,7 +1568,7 @@ setTimeout(function(){
 
 <div id="appParticles" class="app-particles"></div>
 
-<div class="logo" style="display:flex;align-items:center;justify-content:center;gap:8px;">
+<div class="logo" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-left:-30px;white-space:nowrap;">
 <span class="logo-bolt">⚡</span>
 <span>GO ROUTE</span>
 </div>
@@ -3068,6 +3076,11 @@ let courierMarker = L.marker([40.4093, 49.8671], {
         iconAnchor: [20, 20]
     })
 }).addTo(map);
+
+routingControl.on('waypointschanged', function(e) {
+    var el = document.getElementById('distance');
+    if (el) el.innerText = `📏 ${window.straightLineKm(e.from.lat, e.from.lng, e.to.lat, e.to.lng).toFixed(1)} KM`;
+});
 
 routingControl.on('routesfound', function(e) {
     /* Xəritədə yol xətti adi qaydada göstərilir, amma KM düz xətt (haversine) ilə hesablanır. */
